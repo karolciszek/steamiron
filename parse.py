@@ -87,6 +87,8 @@ if __name__=="__main__":
         PLT.plot(x,y)
         PLT.xticks(rotation=30, fontsize="small")
         PLT.plot(x,middle_line,"#eeeeee")
+        xaxis = PLT.gca().xaxis
+        xaxis.grid(True, color="#f2f2f2")
         if filename_base:
             d = datetime.datetime.now()
             directory = "{}.{}.{}".format(d.day, d.month, d.year)
