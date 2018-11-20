@@ -21,25 +21,41 @@ MONTHS = [
     "grudnia",
 ]
 
-DAY_REGEX = re.compile("^[0-9]+")
-MONTH_REGEX = re.compile("|".join(MONTHS))
+class DaylioReader:
+    """Takes the path of a Daylio CSV file and processes the data."""
+    def __init__(self, filename):
+        self._day_regex   = re.compile("^[0-9]+")
+        self._month_regex = re.compile("|".join(MONTHS))
+        self.filename = filename
 
-def parse_daylio_date(entry):
-    year = int(entry["year"])
-    day_month = entry["date"]
-    day_str = DAY_REGEX.match(day_month)[0]
-    day = int(day_str)
-    month_name = MONTH_REGEX.search(day_month)[0]
-    month = MONTHS.index(month_name) + 1
+    def read(self):
+        """Accesses the file on disk and returns entries in chronological order."""
+        with open(self.filename, 'r') as f:
+            reader = DictReader(f)
+            descending_days = [row for row in reader]
+            self.days = descending_days[::-1]
+        return self.days
 
-    #return datetime.timedelta(hours=0)
-    #return datetime.timedelta(days=day)
-    return datetime.date(year, month, day)
-    #return datetime.datetime(
-        #      day,
-  #      month,
-    #)
+    def parse_date(self, entry):
+        """Extracts single datetime object from the year and date columns.
 
+        Daylio exports date/time data in the following way:
+        - "year" is simply represented as YYYY
+        - "date" is the day in DD followed by the full month name
+        - the month in "date" is also localised (in my case Polish)
+        """
+        year = int(entry["year"])
+
+        date = entry["date"]
+        day_str = self._day_regex.match(date)[0]
+        day = int(day_str)
+
+        month_name = self._month_regex.search(date)[0]
+        month = MONTHS.index(month_name) + 1
+        return datetime.date(year, month, day)
+
+    def dates(self):
+        return [self.parse_date(d) for d in self.days]
 
 SCORES = {
         "okropnie": 1,
@@ -52,9 +68,9 @@ SCORES = {
 score = lambda x: SCORES[x]
 
 if __name__=="__main__":
-    with open('daylio_export.csv', 'r') as f:
-        reader = DictReader(f)
-        days = [row for row in reader][::-1]
+    reader = DaylioReader('daylio_export.csv')
+    days = reader.read()
+    dates = reader.dates()
 
     # average
     moods = [score(d["mood"]) for d in days]
@@ -63,7 +79,6 @@ if __name__=="__main__":
     print("Number of entries: {}".format(len(moods)))
 
     def create_time_axis():
-        dates = [parse_daylio_date(d) for d in days]
         moods = [score(d["mood"]) for d in days]
 
         first = min(dates)
@@ -82,7 +97,7 @@ if __name__=="__main__":
         # plot
         y = rolling_mean(moods, rolling_n)
         middle_line = [3 for val in y]
-        x = [parse_daylio_date(d) for d in days]
+        x = dates
 
         PLT.plot(x,y)
         PLT.xticks(rotation=30, fontsize="small")
